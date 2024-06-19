@@ -1,5 +1,5 @@
 using SHTOOLS
-using DelimitedFiles	
+using DelimitedFiles, Statistics	
 using Rasters, NCDatasets, ArchGDAL
 using CairoMakie, .Threads
 
@@ -44,7 +44,6 @@ ref_data =  Float64.(Array(global_pressure))
 # image of data
 pressure_heatmap(grid, ref_data)
 
-
 N = 360
 nodes, w = SHGLQ(nothing, N)
 latglq, longlq = GLQGridCoord(N) 
@@ -56,7 +55,7 @@ glq_data = Array(itp_pressure)
 
 # show interpolated values
 grid_itp = RegularGrid(deg2rad.(longlq), deg2rad.(latglq))
-pressure_heatmap(grid_itp, glq_data)
+# pressure_heatmap(grid_itp, glq_data)
 
 # perform exact analysis
 cilm = SHExpandGLQ(N, glq_data, w, nothing, nodes)
@@ -66,22 +65,33 @@ glq_snk = cilm[2,:,:]
 # approximate analysis
 cnk,snk = sphharm.direct_analysis(grid, ref_data, N)
 
+q,w = sphharm.optimized_analysis(grid, ref_data, N)
+
 # synthesis with harmonic coefficients from direct analysis
 out_da = zeros(length(grid.second_axis), length(grid.first_axis))
-sphharm.synthesis!(out_da, grid, cnk, snk, N)
+sphharm.synthesis!(out_da, grid, q.parent, w.parent, N)
 pressure_heatmap(grid, out_da)
+
+# comparison with reference data
+error_da = out_da - ref_data
+pressure_heatmap(grid, error_da) 
+extrema(error_da), mean(abs, error_da)
+
 
 # the same but with GLQ-based solution
 out_glq = zeros(length(grid.second_axis), length(grid.first_axis))
 sphharm.synthesis!(out_glq, grid, glq_cnk, glq_snk, N)
 pressure_heatmap(grid, out_glq)
 
-# difference
+# comparison with reference data
+error_glq = out_glq - ref_data
+pressure_heatmap(grid, error_glq)
+extrema(error_glq), mean(abs, error_glq)
+
+# difference between solutions
 pressure_heatmap(grid, out_da - out_glq)
 
-# comparison both solution with reference data
-pressure_heatmap(grid, out_da - ref_data)
-pressure_heatmap(grid, out_glq - ref_data)
+
 
 
 # save results as a NetCDF file

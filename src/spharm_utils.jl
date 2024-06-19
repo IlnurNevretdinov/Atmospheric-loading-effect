@@ -31,31 +31,32 @@ function direct_analysis(grid, values, N)
 end
 
 
-# function optimized_analysis(grid, values, N)
-# 	t = eltype(values)
-#     Cnk = OffsetArray(zeros(t, N+1, N+1), 0:N, 0:N)
-#     Snk = OffsetArray(zeros(t, N+1, N+1), 0:N, 0:N)
-#     areas = prod(grid.step) * cos.(grid.second_axis)
-#     weighted_values = values .* areas
-#     @showprogress for n in 0:N
-#         for k in 0:n
-#             s₁ = zero(t)
-#             s₂ = zero(t)
-#             for i in eachindex(grid.second_axis)
-# 				pnk = correct_lgn(sin(grid.second_axis[i]), n, k)
-# 				area = areas[i]
-# 				for j in eachindex(grid.first_axis)
-#                 	sin_kλ, cos_kλ = sincos(k * grid.first_axis[j])
-#                 	s₁ += values[i,j] * pnk * cos_kλ * area
-#                 	s₂ += values[i,j] * pnk * sin_kλ * area
-#             	end
-# 			end
-#         Cnk[n,k] = s₁
-#         Snk[n,k] = s₂
-#         end
-#     end
-#     return 1/4π * Cnk.parent, 1/4π * Snk.parent
-# end
+
+function optimized_analysis(grid, values, N)
+	t = eltype(values)
+    weighted_values = values * prod(grid.step) .* cos.(grid.second_axis)
+    cos_kλ = compute_order_series(grid.first_axis, N, f = cos)
+    sin_kλ = compute_order_series(grid.first_axis, N, f = sin)
+    
+    # preallocate output
+    pnk = zeros(N+1, N+1)
+    # Cnk = OffsetArray(zeros(t, N+1, N+1), 0:N, 0:N)
+    # Snk = OffsetArray(zeros(t, N+1, N+1), 0:N, 0:N)
+    Cnk = zeros(t, N+1, N+1)
+    Snk = zeros(t, N+1, N+1)
+
+    @showprogress for (i,φ) in enumerate(grid.second_axis)
+        correct_lgn!(pnk, sin(φ), N)
+        row_values = view(weighted_values, i, :)
+        for n in 0:N
+            for k in 0:n 
+                Cnk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(cos_kλ, k+1, :))
+                Snk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(sin_kλ, k+1, :))
+            end
+        end
+    end
+    return 1/4π * Cnk, 1/4π * Snk
+end
 
 
 
@@ -98,7 +99,10 @@ function lumped_coefficients!(aₖ, bₖ, pnk, cnk, snk, N)
     return aₖ, bₖ
 end
 
-compute_order_series(vector, order_max; f) = f.(vector' .* collect(0:order_max));
+
+function compute_order_series(vector, order_max; f)
+    return f.(vector' .* collect(0:order_max))
+end
 
 
 function sum_tullio!(out, aₖ, cos_kλ, bₖ, sin_kλ)
