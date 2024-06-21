@@ -74,6 +74,7 @@ function correct_lgn(x, n, k)
     end
 end
 
+
 # the same
 function correct_lgn!(out, x, N)
 	legendre!(LegendreFourPiNorm(), out, N, N, x)

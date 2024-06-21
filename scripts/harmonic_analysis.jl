@@ -23,34 +23,57 @@ mutable struct RegularGrid{T<:AbstractVector, U<:Tuple}
     step::U
 end
 
+
 function RegularGrid(x, y)
     step = abs(x[1]-x[2]), abs(y[1] - y[2])
     return RegularGrid(x, y, step)
 end
 
 
+function initial_pressure(P, g₀, z, R, T₀)
+    out = P / exp((-g₀ * z) / (R * T₀))
+    return out
+end
+
+
+
 
 include("../src/spharm_utils.jl")
 
 # loading data about atmospheric surface pressure
-load_data = Raster("../data/exp_raw/surf_pressure.nc")
+hourly_pressure = Raster("../data/exp_raw/surf_pressure.nc")
 # global_pressure = load_data[Ti(1), X(0.25 .. 359.75), Y(-89.75 .. 89.75)]' ./ 100
-global_pressure = load_data[Ti(1)]' ./ 100 # convert to hPa
+global_pressure = hourly_pressure[Ti(1)]' ./ 100 # convert to hPa
 
+
+hourly_temperature = Raster("../data/exp_raw/temperature.nc")
+global_temperature = hourly_temperature[Ti(1)]' 
+
+
+# make a regular grid
 lon = Array(dims(global_pressure, X))
 lat = Array(dims(global_pressure, Y))
 grid = RegularGrid(deg2rad.(lon), deg2rad.(lat))
 ref_data =  Float64.(Array(global_pressure))
+temp_data = Float64.(Array(global_temperature))
 # image of data
 pressure_heatmap(grid, ref_data)
+
+# compute approximate value of surface pressure at the same zero level
+geoid_data = Raster("../data/exp_pro/geoid_egm96.nc")
+geoid_heigts = Array(reverse(geoid_data', dims = 1)[:, 1:end-1])
+zero_surface = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_data)
+pressure_heatmap(grid, zero_surface .< ref_data)
 
 N = 360
 nodes, w = SHGLQ(nothing, N)
 latglq, longlq = GLQGridCoord(N) 
-
-# interpolate reference data on GLQ grid
+# make raster file with reduced pressure values
+zero_pressure = deepcopy(global_pressure)
+zero_pressure.data .= zero_surface 
+# interpolate them on GLQ grid
 rs_glq = Raster(rand(X(longlq), Y(latglq)))'
-itp_pressure = resample(global_pressure, to = rs_glq, size = size(rs_glq))
+itp_pressure = resample(zero_pressure, to = rs_glq, size = size(rs_glq))
 glq_data = Array(itp_pressure)
 
 # show interpolated values
@@ -65,7 +88,11 @@ glq_snk = cilm[2,:,:]
 # approximate analysis
 cnk,snk = sphharm.direct_analysis(grid, ref_data, N)
 
-q,w = sphharm.optimized_analysis(grid, ref_data, N)
+q,w = @profview sphharm.optimized_analysis(grid, ref_data, 60)
+
+
+@profview sphharm.optimized_analysis(grid, ref_data, 60)
+
 
 # synthesis with harmonic coefficients from direct analysis
 out_da = zeros(length(grid.second_axis), length(grid.first_axis))
@@ -84,7 +111,7 @@ sphharm.synthesis!(out_glq, grid, glq_cnk, glq_snk, N)
 pressure_heatmap(grid, out_glq)
 
 # comparison with reference data
-error_glq = out_glq - ref_data
+error_glq = out_glq - zero_surface
 pressure_heatmap(grid, error_glq)
 extrema(error_glq), mean(abs, error_glq)
 
