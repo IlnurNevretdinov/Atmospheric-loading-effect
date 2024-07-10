@@ -37,7 +37,6 @@ end
 
 
 
-
 include("../src/spharm_utils.jl")
 
 # loading data about atmospheric surface pressure
@@ -68,14 +67,15 @@ pressure_heatmap(grid, zero_surface .< ref_data)
 N = 360
 nodes, w = SHGLQ(nothing, N)
 latglq, longlq = GLQGridCoord(N) 
+
 # make raster file with reduced pressure values
 zero_pressure = deepcopy(global_pressure)
 zero_pressure.data .= zero_surface 
+
 # interpolate them on GLQ grid
 rs_glq = Raster(rand(X(longlq), Y(latglq)))'
 itp_pressure = resample(zero_pressure, to = rs_glq, size = size(rs_glq))
 glq_data = Array(itp_pressure)
-
 # show interpolated values
 grid_itp = RegularGrid(deg2rad.(longlq), deg2rad.(latglq))
 # pressure_heatmap(grid_itp, glq_data)
@@ -88,36 +88,32 @@ glq_snk = cilm[2,:,:]
 # approximate analysis
 cnk,snk = sphharm.direct_analysis(grid, ref_data, N)
 
-q,w = @profview sphharm.optimized_analysis(grid, ref_data, 60)
-
-
-@profview sphharm.optimized_analysis(grid, ref_data, 60)
+q,w = sphharm.optimized_analysis(grid, ref_data, N)
+# @profview sphharm.optimized_analysis(grid, ref_data, 60)
 
 
 # synthesis with harmonic coefficients from direct analysis
 out_da = zeros(length(grid.second_axis), length(grid.first_axis))
-sphharm.synthesis!(out_da, grid, q.parent, w.parent, N)
-pressure_heatmap(grid, out_da)
+sphharm.synthesis!(out_da, grid, cnk, snk, N) 
+pressure_heatmap(grid, out_da) 
 
 # comparison with reference data
 error_da = out_da - ref_data
-pressure_heatmap(grid, error_da) 
-extrema(error_da), mean(abs, error_da)
+pressure_heatmap(grid, error_da)  
+extrema(error_da), mean(abs, error_da) 
 
-
-# the same but with GLQ-based solution
+# the same but for GLQ-based solution
 out_glq = zeros(length(grid.second_axis), length(grid.first_axis))
 sphharm.synthesis!(out_glq, grid, glq_cnk, glq_snk, N)
-pressure_heatmap(grid, out_glq)
+pressure_heatmap(grid, out_glq) 
 
 # comparison with reference data
 error_glq = out_glq - zero_surface
-pressure_heatmap(grid, error_glq)
+pressure_heatmap(grid, error_glq) 
 extrema(error_glq), mean(abs, error_glq)
 
 # difference between solutions
 pressure_heatmap(grid, out_da - out_glq)
-
 
 
 
@@ -135,6 +131,6 @@ delta_factor = [(h_num[n+1] - (n + 1) / 2 * k_num[n+1]) / (2n + 1) for n in 0:N]
 
 # Moscow's coordinates
 p = deg2rad.([37.51604, 55.85503])
-sphharm.synthesis(p, delta_factor, cnk, snk, N) * 1e+9
+sphharm.synthesis(p, delta_factor, glq_cnk, glq_snk, N) * 1e+9
 
 

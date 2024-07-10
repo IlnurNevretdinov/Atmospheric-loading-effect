@@ -40,8 +40,6 @@ function optimized_analysis(grid, values, N)
     
     # preallocate output
     pnk = zeros(N+1, N+1)
-    # Cnk = OffsetArray(zeros(t, N+1, N+1), 0:N, 0:N)
-    # Snk = OffsetArray(zeros(t, N+1, N+1), 0:N, 0:N)
     Cnk = zeros(t, N+1, N+1)
     Snk = zeros(t, N+1, N+1)
 
@@ -50,6 +48,7 @@ function optimized_analysis(grid, values, N)
         row_values = view(weighted_values, i, :)
         for n in 0:N
             for k in 0:n 
+                # compute the influence of single latitude
                 Cnk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(cos_kλ, k+1, :))
                 Snk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(sin_kλ, k+1, :))
             end
@@ -75,18 +74,24 @@ function correct_lgn(x, n, k)
 end
 
 
+mul_by_srt2(x) = √2 * x
+
+
 # the same
 function correct_lgn!(out, x, N)
 	legendre!(LegendreFourPiNorm(), out, N, N, x)
-    @views for i in 2:N+1
-		v = out[i:end,i]
-        if isodd(i)
-            map!(x -> √2 * x, out[i:end,i], v)
+    @views for k in 1:N
+        i = k + 1
+		# v = out[:,i] # column of original values
+        if isodd(k)
+            out[:,i] .= out[:,i] * -√2
+            # map!(mul_by_srt2, out[:,i], -v)
         else
-            map!(x -> -√2 * x, out[i:end,i], v)
+            out[:,i] .= out[:,i] * √2
+            # map!(mul_by_srt2, out[:,i], v)
         end
-    return out
     end
+    return out
 end
 
 
