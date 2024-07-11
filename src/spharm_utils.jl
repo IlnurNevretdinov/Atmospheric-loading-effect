@@ -2,7 +2,7 @@ module sphharm
 
 using AssociatedLegendrePolynomials, LinearAlgebra, Tullio
 using ProgressMeter, OffsetArrays
-
+using .Threads
 
 # constants
 mean_earth_density = 5.5134e+3
@@ -52,7 +52,7 @@ function optimized_analysis(grid, values, N)
     @showprogress for (i,φ) in enumerate(grid.second_axis)
         correct_lgn!(pnk, sin(φ), N)
         row_values = view(weighted_values, i, :)
-        for n in 0:N
+        @threads for n in 0:N
             for k in 0:n 
                 # compute the influence of single latitude
                 Cnk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(cos_kλ, k+1, :))

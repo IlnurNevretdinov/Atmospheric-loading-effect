@@ -48,7 +48,6 @@ global_pressure = hourly_pressure[Ti(1)]' ./ 100 # convert to hPa
 hourly_temperature = Raster("../data/exp_raw/temperature.nc")
 global_temperature = hourly_temperature[Ti(1)]' 
 
-
 # make a regular grid
 lon = Array(dims(global_pressure, X))
 lat = Array(dims(global_pressure, Y))
@@ -62,17 +61,17 @@ pressure_heatmap(grid, ref_data)
 geoid_data = Raster("../data/exp_pro/geoid_egm96.nc")
 geoid_heigts = Array(reverse(geoid_data', dims = 1)[:, 1:end-1])
 reduced_pressure = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_data)
-pressure_heatmap(grid, reduced_pressure .< ref_data)
-
-N = 360
-nodes, w = SHGLQ(nothing, N)
-latglq, longlq = GLQGridCoord(N) 
-
 # make raster structure with reduced pressure values
 sphere_pressure = deepcopy(global_pressure)
 sphere_pressure.data .= reduced_pressure
 
-# interpolate them on GLQ grid
+
+# define expansion degree
+N = 60
+nodes, w = SHGLQ(nothing, N)
+latglq, longlq = GLQGridCoord(N) 
+
+# interpolate reduced data on GLQ grid
 rs_glq = Raster(rand(X(longlq), Y(latglq)))'
 itp_pressure = resample(sphere_pressure, to = rs_glq, size = size(rs_glq))
 glq_data = Array(itp_pressure)
@@ -88,7 +87,7 @@ glq_snk = cilm[2,:,:]
 # approximate analysis
 cnk,snk = sphharm.direct_analysis(grid, sphere_pressure, N)
 
-q,w = sphharm.optimized_analysis(grid, ref_data, N)
+q,w = sphharm.optimized_analysis(grid, sphere_pressure, N)
 # @profview sphharm.optimized_analysis(grid, ref_data, 60)
 
 
