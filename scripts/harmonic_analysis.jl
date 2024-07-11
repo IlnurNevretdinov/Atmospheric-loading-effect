@@ -61,20 +61,20 @@ pressure_heatmap(grid, ref_data)
 # compute approximate value of surface pressure at the same zero level
 geoid_data = Raster("../data/exp_pro/geoid_egm96.nc")
 geoid_heigts = Array(reverse(geoid_data', dims = 1)[:, 1:end-1])
-zero_surface = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_data)
-pressure_heatmap(grid, zero_surface .< ref_data)
+reduced_pressure = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_data)
+pressure_heatmap(grid, reduced_pressure .< ref_data)
 
 N = 360
 nodes, w = SHGLQ(nothing, N)
 latglq, longlq = GLQGridCoord(N) 
 
-# make raster file with reduced pressure values
-zero_pressure = deepcopy(global_pressure)
-zero_pressure.data .= zero_surface 
+# make raster structure with reduced pressure values
+sphere_pressure = deepcopy(global_pressure)
+sphere_pressure.data .= reduced_pressure
 
 # interpolate them on GLQ grid
 rs_glq = Raster(rand(X(longlq), Y(latglq)))'
-itp_pressure = resample(zero_pressure, to = rs_glq, size = size(rs_glq))
+itp_pressure = resample(sphere_pressure, to = rs_glq, size = size(rs_glq))
 glq_data = Array(itp_pressure)
 # show interpolated values
 grid_itp = RegularGrid(deg2rad.(longlq), deg2rad.(latglq))
@@ -86,7 +86,7 @@ glq_cnk = cilm[1,:,:]
 glq_snk = cilm[2,:,:] 
 
 # approximate analysis
-cnk,snk = sphharm.direct_analysis(grid, ref_data, N)
+cnk,snk = sphharm.direct_analysis(grid, sphere_pressure, N)
 
 q,w = sphharm.optimized_analysis(grid, ref_data, N)
 # @profview sphharm.optimized_analysis(grid, ref_data, 60)
@@ -98,7 +98,7 @@ sphharm.synthesis!(out_da, grid, cnk, snk, N)
 pressure_heatmap(grid, out_da) 
 
 # comparison with reference data
-error_da = out_da - ref_data
+error_da = out_da - reduced_pressure
 pressure_heatmap(grid, error_da)  
 extrema(error_da), mean(abs, error_da) 
 
@@ -126,7 +126,9 @@ pressure_heatmap(grid, out_da - out_glq)
 # Love numbers from LoadDef
 lln = readdlm("../data/exp_pro/lln_PREM.txt", skipstart = 14)
 h_num = lln[1:N+1, 2]
-k_num = lln[1:N+1, 4]
+# k_num = lln[1:N+1, 4]
+k_num = lln[1:N+1, 4] ./ lln[1:N+1,1]
+k_num[1] = 0.0
 delta_factor = [(h_num[n+1] - (n + 1) / 2 * k_num[n+1]) / (2n + 1) for n in 0:N]
 
 # Moscow's coordinates

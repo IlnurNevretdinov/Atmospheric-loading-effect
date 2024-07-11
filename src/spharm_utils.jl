@@ -4,6 +4,12 @@ using AssociatedLegendrePolynomials, LinearAlgebra, Tullio
 using ProgressMeter, OffsetArrays
 
 
+# constants
+mean_earth_density = 5.5134e+3
+a = 6371000
+f = -6 / mean_earth_density / a
+
+
 # naive implementation, it takes way more time then GLQ-based approach in SHTOOLS 
 function direct_analysis(grid, values, N)
 	t = eltype(values)
@@ -74,9 +80,6 @@ function correct_lgn(x, n, k)
 end
 
 
-mul_by_srt2(x) = √2 * x
-
-
 # the same
 function correct_lgn!(out, x, N)
 	legendre!(LegendreFourPiNorm(), out, N, N, x)
@@ -96,11 +99,11 @@ end
 
 
 function lumped_coefficients!(aₖ, bₖ, pnk, cnk, snk, N)
-    for k in 0:N
+    @views for k in 0:N
 		idx = k + 1
-        @views pnk_vec = pnk[idx:end,idx] 
-        @views aₖ[idx] = dot(pnk_vec, cnk[idx:end,idx])
-        @views bₖ[idx] = dot(pnk_vec, snk[idx:end,idx])
+        pnk_vec = pnk[idx:end,idx] 
+        aₖ[idx] = dot(pnk_vec, cnk[idx:end,idx])
+        bₖ[idx] = dot(pnk_vec, snk[idx:end,idx])
     end
     return aₖ, bₖ
 end
@@ -133,7 +136,6 @@ end
 
 function synthesis(point, delta_factor, cnk, snk, N)
     λ,φ = point
-    f = -6 / (5.5134e+3 * 6371000)
     cos_kλ = compute_order_series(λ, N, f = cos)
     sin_kλ = compute_order_series(λ, N, f = sin)
 
