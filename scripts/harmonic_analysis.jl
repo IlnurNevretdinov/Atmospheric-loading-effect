@@ -4,7 +4,6 @@ using Rasters, NCDatasets, ArchGDAL
 using CairoMakie, .Threads
 
 
-
 # auxiliary functions
 function pressure_heatmap(grid, data)
     x = rad2deg.(grid.first_axis)
@@ -40,36 +39,37 @@ end
 include("../src/spharm_utils.jl")
 
 # loading data about atmospheric surface pressure
+i = 15
 hourly_pressure = Raster("../data/exp_raw/surf_pressure.nc")
-# global_pressure = load_data[Ti(1), X(0.25 .. 359.75), Y(-89.75 .. 89.75)]' ./ 100
-global_pressure = hourly_pressure[Ti(1)]' ./ 100 # convert to hPa
+global_pressure = hourly_pressure[Ti(i)]' ./ 100 # convert to hPa
+ref_data =  Float64.(Array(global_pressure))
+# pressure_heatmap(grid, ref_data)
 
-
-hourly_temperature = Raster("../data/exp_raw/temperature.nc")
-global_temperature = hourly_temperature[Ti(1)]' 
-
-# make a regular grid
+# make a regular grid for global data
 lon = Array(dims(global_pressure, X))
 lat = Array(dims(global_pressure, Y))
 grid = RegularGrid(deg2rad.(lon), deg2rad.(lat))
-ref_data =  Float64.(Array(global_pressure))
-temp_data = Float64.(Array(global_temperature))
-# image of data
-pressure_heatmap(grid, ref_data)
 
-# compute approximate value of surface pressure at the same zero level
+# geoid heights from EGM96
 geoid_data = Raster("../data/exp_pro/geoid_egm96.nc")
 geoid_heigts = Array(reverse(geoid_data', dims = 1)[:, 1:end-1])
+
+# temperature from ECMWF
+hourly_temperature = Raster("../data/exp_raw/temperature.nc")
+global_temperature = hourly_temperature[Ti(i)]' 
+temp_data = Float64.(Array(global_temperature))
+
+# reduce the pressure values to the same surface
 reduced_pressure = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_data)
-# make raster structure with reduced pressure values
 sphere_pressure = deepcopy(global_pressure)
 sphere_pressure.data .= reduced_pressure
 
 
 # define expansion degree
-N = 60
+N = 180
 nodes, w = SHGLQ(nothing, N)
 latglq, longlq = GLQGridCoord(N) 
+
 
 # interpolate reduced data on GLQ grid
 rs_glq = Raster(rand(X(longlq), Y(latglq)))'
@@ -78,7 +78,6 @@ glq_data = Array(itp_pressure)
 # show interpolated values
 grid_itp = RegularGrid(deg2rad.(longlq), deg2rad.(latglq))
 # pressure_heatmap(grid_itp, glq_data)
-
 # perform exact analysis
 cilm = SHExpandGLQ(N, glq_data, w, nothing, nodes)
 glq_cnk = cilm[1,:,:] 
