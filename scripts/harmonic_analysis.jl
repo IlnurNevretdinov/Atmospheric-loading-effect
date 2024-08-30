@@ -39,7 +39,7 @@ end
 include("../src/spharm_utils.jl")
 
 # loading data about atmospheric surface pressure
-i = 15
+i = 1
 hourly_pressure = Raster("../data/exp_raw/surf_pressure.nc")
 global_pressure = hourly_pressure[Ti(i)]' ./ 100 # convert to hPa
 ref_data =  Float64.(Array(global_pressure))
@@ -64,12 +64,10 @@ reduced_pressure = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_d
 sphere_pressure = deepcopy(global_pressure)
 sphere_pressure.data .= reduced_pressure
 
-
 # define expansion degree
 N = 180
 nodes, w = SHGLQ(nothing, N)
 latglq, longlq = GLQGridCoord(N) 
-
 
 # interpolate reduced data on GLQ grid
 rs_glq = Raster(rand(X(longlq), Y(latglq)))'
@@ -114,7 +112,6 @@ extrema(error_glq), mean(abs, error_glq)
 pressure_heatmap(grid, out_da - out_glq)
 
 
-
 # save results as a NetCDF file
 # rs_err = Raster(rand(X(lon), Y(lat)))
 # rs_err.data .= (out - ref_data)'
@@ -124,13 +121,12 @@ pressure_heatmap(grid, out_da - out_glq)
 # Love numbers from LoadDef
 lln = readdlm("../data/exp_pro/lln_PREM.txt", skipstart = 14)
 h_num = lln[1:N+1, 2]
-# k_num = lln[1:N+1, 4]
 k_num = lln[1:N+1, 4] ./ lln[1:N+1,1]
 k_num[1] = 0.0
 delta_factor = [(h_num[n+1] - (n + 1) / 2 * k_num[n+1]) / (2n + 1) for n in 0:N]
 
 # Moscow's coordinates
 p = deg2rad.([37.51604, 55.85503])
-sphharm.synthesis(p, delta_factor, glq_cnk, glq_snk, N) * 1e+9
+sphharm.synthesis(p, delta_factor, glq_cnk, glq_snk, N)
 
 

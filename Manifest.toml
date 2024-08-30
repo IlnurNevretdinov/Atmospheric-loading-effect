@@ -608,7 +608,7 @@ version = "1.1.0"
 
 [[deps.GeodeticIntegrals]]
 deps = ["AssociatedLegendrePolynomials", "Distances", "LinearAlgebra", "NCDatasets", "NearestNeighbors", "ProgressBars", "Rasters"]
-git-tree-sha1 = "79b74db12524b5d41490456bc80081b3cd4e48fc"
+git-tree-sha1 = "d404b49939a0570c85884892450faceba481a4e2"
 repo-rev = "main"
 repo-url = "git@github.com:IlnurNevretdinov/GeodeticIntegrals.git"
 uuid = "f7ba906d-151e-430e-866e-2476f224897e"

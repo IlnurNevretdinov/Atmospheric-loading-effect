@@ -1,21 +1,11 @@
 using DelimitedFiles, Statistics	
 using Rasters, NCDatasets, ArchGDAL
 using CairoMakie, .Threads
+using Interpolations
 import GeodeticIntegrals as lib
 
 
 # auxiliary functions
-function pressure_heatmap(grid, data)
-    x = rad2deg.(grid.first_axis)
-    y = rad2deg.(grid.second_axis)
-    fig = Figure(size = (1600, 800), fontsize = 25)
-    ax = Axis(fig[1,1], xlabel = "λ", ylabel = "φ", )
-    hmap = heatmap!(ax, x, y, data', colormap = :Spectral_11)
-    # contour!(ax, x, y, data', levels=-400:100:300, color=:black, linewidth=0.85)
-    Colorbar(fig[1,2], hmap)
-    fig
-end
-
 function create_grid(x_vec, y_vec)
     n = length(y_vec)
     k = length(x_vec)
@@ -40,11 +30,13 @@ end
 
 include("../src/spharm_utils.jl")
 
+
 # loading data about atmospheric surface pressure
 i = 1
 hourly_pressure = Raster("../data/exp_raw/surf_pressure.nc")
 global_pressure = hourly_pressure[Ti(i)]' ./ 100 # convert to hPa
-data =  Float64.(Array(global_pressure))
+data = Float64.(Array(global_pressure))
+
 
 # make a regular grid for global data
 lon = deg2rad.(Array(dims(global_pressure, X)))
@@ -60,10 +52,22 @@ k_num = lln[1:N+1, 4] ./ lln[1:N+1,1]
 k_num[1] = 0.0
 ln_hcat = [h_num k_num]
 
-# integration
-ψ₀ = 20.0
+
+# Moscow's coordinates
+p = permutedims(deg2rad.([37.51604 55.85503]))
+
+# global integration
+ψ₀ = 10
 kernel = lib.GreenGravity(truncation_radius = ψ₀, LoveNumber = ln_hcat, quadrature_order = 3, degree = N)
-atl = lib.integration(data, grid, kernel)
+atl_global = lib.integration(data, grid, kernel)
+# interpolate on given point
+itp = interpolate((reverse(lat), lon), reverse(atl_global, dims = 1), Gridded(Linear()))
+itp(p[2], p[1])
+
+# local integration
+atl_local = lib.integration(p, data, grid, kernel, number_neighbors = 4) 
+
+
 
 begin
     x = rad2deg.(grid.first_axis[1,:])
