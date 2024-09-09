@@ -41,6 +41,7 @@ end
 function optimized_analysis(grid, values, N)
 	t = eltype(values)
     weighted_values = values * prod(grid.step) .* cos.(grid.second_axis)
+
     cos_kλ = compute_order_series(grid.first_axis, N, f = cos)
     sin_kλ = compute_order_series(grid.first_axis, N, f = sin)
     
@@ -54,7 +55,7 @@ function optimized_analysis(grid, values, N)
         row_values = view(weighted_values, i, :)
         @threads for n in 0:N
             for k in 0:n 
-                # compute the influence of single latitude
+                # the contribution of the current parallel to each coefficient
                 Cnk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(cos_kλ, k+1, :))
                 Snk[n+1,k+1] += pnk[n+1,k+1] * dot(row_values, view(sin_kλ, k+1, :))
             end
@@ -80,7 +81,7 @@ function correct_lgn(x, n, k)
 end
 
 
-# the same
+# the same, for array
 function correct_lgn!(out, x, N)
 	legendre!(LegendreFourPiNorm(), out, N, N, x)
     @views for k in 1:N
@@ -138,13 +139,10 @@ function synthesis(point, delta_factor, cnk, snk, N)
     λ,φ = point
     cos_kλ = compute_order_series(λ, N, f = cos)
     sin_kλ = compute_order_series(λ, N, f = sin)
-
     pnk = zeros(N+1,N+1)
     correct_lgn!(pnk, sin(φ), N)
-    s = sum((cnk .* cos_kλ' + snk .* sin_kλ') .* pnk, dims = 2)
-    
+    s = sum((cnk .* cos_kλ' + snk .* sin_kλ') .* pnk, dims = 2)    
     return f * dot(delta_factor, s)
-
 end
 
 

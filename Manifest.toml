@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.4"
+julia_version = "1.10.5"
 manifest_format = "2.0"
 project_hash = "93a4e3931bd73aa446d573b6abc20cf3751e8240"
 
@@ -608,7 +608,7 @@ version = "1.1.0"
 
 [[deps.GeodeticIntegrals]]
 deps = ["AssociatedLegendrePolynomials", "Distances", "LinearAlgebra", "NCDatasets", "NearestNeighbors", "ProgressBars", "Rasters"]
-git-tree-sha1 = "d404b49939a0570c85884892450faceba481a4e2"
+git-tree-sha1 = "a440dff0d94f53bcea0fb13ed613f52751129973"
 repo-rev = "main"
 repo-url = "git@github.com:IlnurNevretdinov/GeodeticIntegrals.git"
 uuid = "f7ba906d-151e-430e-866e-2476f224897e"
@@ -1889,7 +1889,7 @@ version = "0.15.1+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.8.0+1"
+version = "5.11.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]

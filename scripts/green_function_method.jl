@@ -50,22 +50,32 @@ lln = readdlm("../data/exp_pro/lln_PREM.txt", skipstart = 14)
 h_num = lln[1:N+1, 2]
 k_num = lln[1:N+1, 4] ./ lln[1:N+1,1]
 k_num[1] = 0.0
-ln_hcat = [h_num k_num]
-
+lovenumber = lib.LoveNumber(h = h_num, l = rand(10), k = k_num)
 
 # Moscow's coordinates
 p = permutedims(deg2rad.([37.51604 55.85503]))
 
 # global integration
-ψ₀ = 10
-kernel = lib.GreenGravity(truncation_radius = ψ₀, LoveNumber = ln_hcat, quadrature_order = 3, degree = N)
+ψ₀ = 1
+kernel = lib.GreenVertical(truncation_radius = ψ₀, LN = lovenumber, quadrature_order = 3, degree = N)
 atl_global = lib.integration(data, grid, kernel)
 # interpolate on given point
 itp = interpolate((reverse(lat), lon), reverse(atl_global, dims = 1), Gridded(Linear()))
 itp(p[2], p[1])
 
+
 # local integration
-atl_local = lib.integration(p, data, grid, kernel, number_neighbors = 4) 
+atl_local = lib.integration(p, data, grid, kernel, number_neighbors = 5) 
+
+
+out_local = []
+for k in 1:3:24
+    gp = hourly_pressure[Ti(k)]' ./ 100 # convert to hPa
+    d = Float64.(Array(gp))
+    atl_local = lib.integration(p, d, grid, kernel, number_neighbors = 10) 
+    push!(out_local, atl_local[1])
+end
+
 
 
 
