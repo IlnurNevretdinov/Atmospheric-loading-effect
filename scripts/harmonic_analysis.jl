@@ -50,13 +50,12 @@ delta_factor = [(h_num[n+1] - (n + 1) / 2 * k_num[n+1]) / (2n + 1) for n in 0:N]
 p = deg2rad.([37.51604, 55.85503])
 
 # define expansion degree
-N = 180
+N = 360
 
 # loading data about atmospheric surface pressure
 hourly_pressure = Raster("../data/exp_raw/surf_pressure.nc")
 # temperature from ECMWF
 hourly_temperature = Raster("../data/exp_raw/temperature.nc")
-
 
 # make a regular grid for global data
 lon = Array(dims(hourly_pressure, X))
@@ -66,6 +65,11 @@ grid = RegularGrid(deg2rad.(lon), deg2rad.(lat))
 # geoid heights from EGM96
 geoid_data = Raster("../data/exp_pro/geoid_egm96.nc")
 geoid_heigts = Array(reverse(geoid_data', dims = 1)[:, 1:end-1])
+
+# mask land-ocean, quite approximate
+ocean_land = reverse(Raster("../data/exp_raw/mask.nc")', dims=1)
+mask_values = getindex(Array(ocean_land), :, 1:length(lon))
+pressure_heatmap(grid, mask_values)
 
 
 begin
@@ -77,10 +81,12 @@ begin
     temp_data = Float64.(Array(global_temperature))
     
     # reduce all pressure values to the same surface
-    reduced_pressure = initial_pressure.(ref_data, 9.8, geoid_heigts, 287.04, temp_data)
+    reduced_pressure = initial_pressure.(ref_data,9.8,geoid_heigts,287.04,temp_data) .- mean(reduced_pressure)
     sphere_pressure = deepcopy(global_pressure)
-    sphere_pressure.data .= reduced_pressure .- mean(reduced_pressure)
+    sphere_pressure.data .= reduced_pressure .* mask_values
 end
+
+pressure_heatmap(grid, sphere_pressure.data)
 
 # GLQ solution
 begin
@@ -103,6 +109,7 @@ begin
     # comparison on GLQ grid
     gridglq = MakeGridGLQC(cilm, N, nothing, nodes)
     extrema(gridglq - glq_data), mean(abs, gridglq - glq_data)
+
     # comparison with reference data on source grid
     out_glq = zeros(length(grid.second_axis), length(grid.first_axis))
     sphharm.synthesis!(out_glq, grid, glq_cnk, glq_snk, N)
@@ -134,7 +141,10 @@ begin
 end
 
 # difference between solutions
-pressure_heatmap(grid, out_da - out_glq)
+pressure_heatmap(grid, error_da)
+
+sphharm.synthesis(p, delta_factor, q, w, N) * 10^10
+
 
 # save results as a NetCDF file
 # rs_err = Raster(rand(X(lon), Y(lat)))
